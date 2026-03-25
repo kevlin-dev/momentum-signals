@@ -482,13 +482,19 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
             dict(count=1, label="1H", step="hour", stepmode="backward"),
             dict(count=2, label="2H", step="hour", stepmode="backward"),
             dict(count=4, label="4H", step="hour", stepmode="backward"),
-            dict(label="Today", count=1, step="day", stepmode="todate"),
             dict(step="all", label="All"),
         ]
-        # Default: today's full session so far
+        # Default: market hours only (9:30 AM - 4:00 PM ET) — no dead overnight space
         if len(dates) > 0:
-            default_x_end = dates[-1] + pd.Timedelta(minutes=5)
-            default_x_start = dates[-1].normalize()  # midnight of today
+            last_date = dates[-1]
+            # Get today's date in the data's timezone
+            if hasattr(last_date, 'tz') and last_date.tz is not None:
+                today = last_date.normalize()
+                default_x_start = today + pd.Timedelta(hours=9, minutes=30)
+                default_x_end = today + pd.Timedelta(hours=16, minutes=5)
+            else:
+                default_x_start = last_date.normalize() + pd.Timedelta(hours=9, minutes=30)
+                default_x_end = last_date.normalize() + pd.Timedelta(hours=16, minutes=5)
         else:
             default_x_start = default_x_end = None
     else:
@@ -520,7 +526,16 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
         xaxis_updates["range"] = [default_x_start, default_x_end]
 
     fig.update_xaxes(**xaxis_updates)
-    fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)", showgrid=True, row=1, col=1)
+
+    # Tighten y-axis around actual price action — center the volatility
+    price_min = plot_df["Low"].min()
+    price_max = plot_df["High"].max()
+    price_padding = (price_max - price_min) * 0.15  # 15% breathing room
+    fig.update_yaxes(
+        gridcolor="rgba(255,255,255,0.05)", showgrid=True,
+        range=[price_min - price_padding, price_max + price_padding],
+        row=1, col=1,
+    )
 
     if level >= 3:
         fig.update_yaxes(row=2, col=1, title_text="RSI", range=[0, 100],
