@@ -737,10 +737,11 @@ if ticker:
         st.markdown("### How Much to Buy")
         col_cap, col_risk, col_result = st.columns([1, 1, 2])
         with col_cap:
-            capital = st.number_input("Your capital ($)", value=10000, step=1000)
+            capital = st.number_input("Money for this trade ($)", value=10000, step=1000,
+                                      help="The amount you're allocating to this trade — not your total portfolio")
         with col_risk:
             risk_pct = st.slider("Max risk (%)", min_value=1, max_value=5, value=2,
-                                 help="% of your capital you're willing to lose on this trade")
+                                 help="1% = conservative (beginners start here). 2% = standard. 3%+ = aggressive.")
         with col_result:
             shares, position_value = compute_position_size(capital, risk_pct, current_price, stop_loss)
             if shares > 0:
