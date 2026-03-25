@@ -13,8 +13,8 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-import time as _time
 import requests as _requests
+from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIG ---
 st.set_page_config(
@@ -594,13 +594,8 @@ else:
     mode_label = "Day Trading — 5-min candles, in and out today"
     refresh_interval = 15
 
-# Always auto-refresh
-if "last_refresh" not in st.session_state:
-    st.session_state.last_refresh = _time.time()
-elapsed = _time.time() - st.session_state.last_refresh
-if elapsed >= refresh_interval:
-    st.session_state.last_refresh = _time.time()
-    st.rerun()
+# Auto-refresh: 15s for day trading, 60s for swing
+st_autorefresh(interval=refresh_interval * 1000, key="data_refresh")
 
 # --- MAIN ---
 if ticker:
