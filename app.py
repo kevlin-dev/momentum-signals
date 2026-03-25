@@ -231,7 +231,7 @@ def compute_position_size(capital, risk_pct, price, stop_loss):
 def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
                 sma_20_series, sma_50_series, support, resistance, stop_loss,
                 target_1, target_2, current_price, rsi_series, volume_series,
-                avg_volume, atr, ticker, lookback=60, level=1):
+                avg_volume, atr, ticker, lookback=60, level=1, trade_mode="Swing"):
     """Build chart with progressive complexity levels."""
 
     plot_df = df.tail(lookback).copy()
@@ -473,9 +473,52 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
         xaxis_rangeslider_visible=False,
         hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(30,30,30,0.95)", font_size=12),
+        dragmode="pan",
     )
 
-    fig.update_xaxes(gridcolor="rgba(255,255,255,0.05)", showgrid=True)
+    # Range selector buttons — quick jump to relevant timeframes
+    if trade_mode == "Day":
+        range_buttons = [
+            dict(count=1, label="1H", step="hour", stepmode="backward"),
+            dict(count=2, label="2H", step="hour", stepmode="backward"),
+            dict(count=4, label="4H", step="hour", stepmode="backward"),
+            dict(step="all", label="All"),
+        ]
+        # Default view: last 2 hours (the actionable window for day trading)
+        if len(dates) > 0:
+            default_x_end = dates[-1] + pd.Timedelta(minutes=5)
+            default_x_start = default_x_end - pd.Timedelta(hours=2)
+        else:
+            default_x_start = default_x_end = None
+    else:
+        range_buttons = [
+            dict(count=2, label="2W", step="day", stepmode="backward"),
+            dict(count=1, label="1M", step="month", stepmode="backward"),
+            dict(count=3, label="3M", step="month", stepmode="backward"),
+            dict(step="all", label="All"),
+        ]
+        # Default view: last 6 weeks (sweet spot for swing decisions)
+        if len(dates) > 0:
+            default_x_end = dates[-1] + pd.Timedelta(days=1)
+            default_x_start = default_x_end - pd.Timedelta(weeks=6)
+        else:
+            default_x_start = default_x_end = None
+
+    xaxis_updates = dict(
+        gridcolor="rgba(255,255,255,0.05)",
+        showgrid=True,
+        rangeselector=dict(
+            buttons=range_buttons,
+            bgcolor="#1f2937",
+            activecolor="#374151",
+            font=dict(color="#e5e7eb", size=11),
+            x=0, y=1.06,
+        ),
+    )
+    if default_x_start is not None:
+        xaxis_updates["range"] = [default_x_start, default_x_end]
+
+    fig.update_xaxes(**xaxis_updates)
     fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)", showgrid=True, row=1, col=1)
 
     if level >= 3:
@@ -547,7 +590,7 @@ if mode == "Swing":
 else:
     data_period = "5d"
     data_interval = "5m"
-    default_lookback = 78
+    default_lookback = 156  # 2 full trading days of 5-min bars (buffer for today + yesterday context)
     mode_label = "Day Trading — 5-min candles, in and out today"
     refresh_interval = 15
 
@@ -675,14 +718,14 @@ if ticker:
                 sma_20_series, sma_50_series, support, resistance,
                 stop_loss, target_1, target_2, current_price,
                 rsi_series, df["Volume"], avg_volume, atr, ticker.upper(),
-                lookback=default_lookback, level=level,
+                lookback=default_lookback, level=level, trade_mode=mode,
             )
             st.plotly_chart(fig, use_container_width=True, config={
                 "displayModeBar": "hover",
                 "modeBarButtonsToRemove": ["lasso2d", "select2d", "toImage"],
                 "scrollZoom": True,
             })
-            st.caption("Drag to zoom | Scroll to zoom | Double-click to reset")
+            st.caption("Drag to pan | Scroll to zoom | Use time buttons to jump | Double-click to reset")
 
         # --- 3. THE RULES (know before you act) ---
         st.markdown("---")
