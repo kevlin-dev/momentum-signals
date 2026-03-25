@@ -546,6 +546,42 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
     return fig
 
 
+# --- LIVE PRICE FRAGMENT (defined at module level) ---
+
+@st.fragment(run_every=timedelta(seconds=15))
+def live_signal_card():
+    sig = st.session_state.get("_sig", {})
+    if not sig:
+        st.info("Loading...")
+        return
+    quote = get_finnhub_quote(sig["ticker"])
+    if quote:
+        live_price = quote["c"]
+        live_change = quote["dp"]
+        source_label = "live"
+    else:
+        live_price = sig["current_price"]
+        live_change = sig["daily_change"]
+        source_label = "delayed"
+    live_color = '#22c55e' if live_change >= 0 else '#ef4444'
+    live_sign = '+' if live_change >= 0 else ''
+    color = sig["color"]
+    signal = sig["signal"]
+    st.markdown(f"""
+    <div style="background: #111827; border: 2px solid {color}; border-radius: 12px; padding: 20px; text-align: center; margin: 8px 0;">
+        <div style="font-size: 48px; font-weight: 800; letter-spacing: 4px; color: {color};">{signal}</div>
+        <div style="font-size: 18px; color: #e5e7eb; margin-top: 4px;">
+            {sig['ticker']} &mdash; ${live_price:.2f}
+            <span style="color: {live_color};">({live_sign}{live_change:.1f}%)</span>
+        </div>
+        <div style="font-size: 13px; color: #9ca3af; margin-top: 6px;">
+            {"Above" if sig['in_trade_now'] else "Below"} safety line
+            &middot; {source_label} &middot; {datetime.now().strftime('%H:%M:%S')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # --- UI ---
 
 # Minimal CSS — only what Streamlit can't do natively
@@ -674,37 +710,16 @@ if ticker:
         # LAYOUT — Card + Chart side by side, rest below
         # =====================
 
+        # Store signal data in session_state so the fragment can access it
+        st.session_state["_sig"] = dict(
+            ticker=ticker.upper(), signal=signal, color=color,
+            current_price=current_price, daily_change=daily_change,
+            in_trade_now=in_trade_now, refresh_interval=refresh_interval,
+        )
+
         col_card, col_chart = st.columns([1, 3])
 
         with col_card:
-            # --- Live price fragment — auto-refreshes without touching the chart ---
-            @st.fragment(run_every=timedelta(seconds=refresh_interval))
-            def live_signal_card():
-                quote = get_finnhub_quote(ticker.upper())
-                if quote:
-                    live_price = quote["c"]
-                    live_change = quote["dp"]
-                    source_label = "live"
-                else:
-                    live_price = current_price
-                    live_change = daily_change
-                    source_label = "delayed"
-                live_color = '#22c55e' if live_change >= 0 else '#ef4444'
-                live_sign = '+' if live_change >= 0 else ''
-                st.markdown(f"""
-                <div style="background: #111827; border: 2px solid {color}; border-radius: 12px; padding: 20px; text-align: center; margin: 8px 0;">
-                    <div style="font-size: 48px; font-weight: 800; letter-spacing: 4px; color: {color};">{signal}</div>
-                    <div style="font-size: 18px; color: #e5e7eb; margin-top: 4px;">
-                        {ticker.upper()} &mdash; ${live_price:.2f}
-                        <span style="color: {live_color};">({live_sign}{live_change:.1f}%)</span>
-                    </div>
-                    <div style="font-size: 13px; color: #9ca3af; margin-top: 6px;">
-                        {"Above" if in_trade_now else "Below"} safety line
-                        &middot; {source_label} &middot; {datetime.now().strftime('%H:%M:%S')}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
             live_signal_card()
 
             # --- Key numbers (static — updates on widget change) ---
