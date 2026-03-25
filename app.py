@@ -707,9 +707,12 @@ if ticker:
 
             if shares > 0:
                 max_loss = shares * (current_price - stop_loss)
-                st.markdown(f"**Buy {shares} shares** (${position_value:,.0f})")
-                st.markdown(f"If it hits your stop: you lose **${max_loss:,.0f}** ({risk_pct}% of ${capital:,})")
-                st.caption("This is the MOST you can lose if you follow your stop.")
+                st.info(f"Buy {shares} shares (${position_value:,.0f})")
+                st.caption(
+                    f"Worst case if it hits your stop: you lose ${max_loss:,.0f} "
+                    f"— that's {risk_pct}% of your ${capital:,}. "
+                    f"This is the MOST you can lose if you follow your stop."
+                )
             else:
                 st.warning("No valid trade setup at this price.")
 
