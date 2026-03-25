@@ -482,25 +482,26 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
             dict(count=1, label="1H", step="hour", stepmode="backward"),
             dict(count=2, label="2H", step="hour", stepmode="backward"),
             dict(count=4, label="4H", step="hour", stepmode="backward"),
+            dict(label="Today", count=1, step="day", stepmode="todate"),
             dict(step="all", label="All"),
         ]
-        # Default view: last 2 hours (the actionable window for day trading)
+        # Default: today's full session so far
         if len(dates) > 0:
             default_x_end = dates[-1] + pd.Timedelta(minutes=5)
-            default_x_start = default_x_end - pd.Timedelta(hours=2)
+            default_x_start = dates[-1].normalize()  # midnight of today
         else:
             default_x_start = default_x_end = None
     else:
         range_buttons = [
-            dict(count=2, label="2W", step="day", stepmode="backward"),
             dict(count=1, label="1M", step="month", stepmode="backward"),
+            dict(count=2, label="2M", step="month", stepmode="backward"),
             dict(count=3, label="3M", step="month", stepmode="backward"),
-            dict(step="all", label="All"),
+            dict(step="all", label="6M"),
         ]
-        # Default view: last 6 weeks (sweet spot for swing decisions)
+        # Default: 2 months — enough to see the trend without drowning in noise
         if len(dates) > 0:
             default_x_end = dates[-1] + pd.Timedelta(days=1)
-            default_x_start = default_x_end - pd.Timedelta(weeks=6)
+            default_x_start = default_x_end - pd.Timedelta(days=60)
         else:
             default_x_start = default_x_end = None
 
