@@ -746,10 +746,26 @@ if ticker:
             shares, position_value = compute_position_size(capital, risk_pct, current_price, stop_loss)
             if shares > 0:
                 max_loss = shares * (current_price - stop_loss)
+                gain_t1 = shares * (target_1 - current_price)
+                gain_t2 = shares * (target_2 - current_price)
+                # Half sold at T1, half at T2
+                realistic_gain = (shares / 2) * (target_1 - current_price) + (shares / 2) * (target_2 - current_price)
+
                 st.info(f"Buy {shares} shares (${position_value:,.0f})")
+
+                col_loss, col_gain = st.columns(2)
+                with col_loss:
+                    st.metric("If stopped out", f"-${max_loss:,.0f}",
+                              delta=f"-{(max_loss / position_value * 100):.1f}%",
+                              delta_color="inverse")
+                with col_gain:
+                    st.metric("If both targets hit", f"+${realistic_gain:,.0f}",
+                              delta=f"+{(realistic_gain / position_value * 100):.1f}%")
+
                 st.caption(
-                    f"Worst case if stopped out: you lose ${max_loss:,.0f} "
-                    f"({risk_pct}% of ${capital:,}). That's the MOST you can lose."
+                    f"Target 1 alone = +${gain_t1:,.0f} | "
+                    f"Target 2 alone = +${gain_t2:,.0f} | "
+                    f"Following the rules (half at T1, rest at T2) = +${realistic_gain:,.0f}"
                 )
             else:
                 st.warning("No valid trade setup at this price.")
