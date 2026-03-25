@@ -617,13 +617,13 @@ if ticker:
         )
 
         # =====================
-        # LAYOUT
+        # LAYOUT — Card + Chart side by side, rest below
         # =====================
 
         col_card, col_chart = st.columns([1, 3])
 
         with col_card:
-            # Signal card — use explicit dark background so text is always visible
+            # --- Signal card ---
             trade_status = "Above safety line" if in_trade_now else "Below safety line"
             change_color = '#22c55e' if daily_change >= 0 else '#ef4444'
             change_sign = '+' if daily_change >= 0 else ''
@@ -638,39 +638,35 @@ if ticker:
             </div>
             """, unsafe_allow_html=True)
 
-            # Key numbers
+            # --- Key numbers ---
             st.metric("Safety Line", f"${current_trailing_stop:.2f}",
-                      help="The trailing stop. Only moves up, never down. If price drops below this, sell.")
+                      help="Trailing stop. Only moves up. If price drops below → sell.")
 
             if level >= 2:
                 st.metric("Stop Loss", f"${stop_loss:.2f}",
                           delta=f"-{((current_price - stop_loss) / current_price * 100):.1f}%",
                           delta_color="inverse",
-                          help="Your absolute floor. Set this when you enter. Never move it lower.")
+                          help="Your absolute floor. Never move it lower.")
                 st.metric("Target 1", f"${target_1:.2f}",
                           delta=f"+{((target_1 - current_price) / current_price * 100):.1f}%",
-                          help="When price hits this, sell half your shares and move stop to breakeven.")
+                          help="Sell half here. Move stop to breakeven.")
                 st.metric("Target 2", f"${target_2:.2f}",
                           delta=f"+{((target_2 - current_price) / current_price * 100):.1f}%",
-                          help="When price hits this, sell the rest.")
-
+                          help="Sell the rest here.")
                 if rr_ratio > 0:
-                    rr_color = "#22c55e" if rr_ratio >= 1.5 else "#f59e0b" if rr_ratio >= 1 else "#ef4444"
                     rr_label = "Good" if rr_ratio >= 1.5 else "OK" if rr_ratio >= 1 else "Skip"
-                    st.markdown(
-                        f"**Risk/Reward:** <span style='color:{rr_color};'>{rr_ratio:.1f}:1 ({rr_label})</span>",
-                        unsafe_allow_html=True,
-                    )
-                    st.caption("Above 1.5:1 = good trade. Below 1:1 = don't bother.")
+                    st.metric("Risk/Reward", f"{rr_ratio:.1f}:1", delta=rr_label,
+                              delta_color="normal" if rr_ratio >= 1.5 else "off",
+                              help="Above 1.5:1 = good trade. Below 1:1 = don't bother.")
 
         with col_chart:
-            st.caption(f"_{mode_label}_")
+            # --- Chart ---
             level_desc = {
-                1: "**Easy** — Price + Safety Line. That's all you need.",
-                2: "**Normal** — Adds zones, targets, and trend lines.",
-                3: "**Pro** — Candlesticks, RSI, volume.",
+                1: "Price + Safety Line. That's all you need.",
+                2: "Adds support/resistance, targets, and trends.",
+                3: "Full dashboard: candlesticks, RSI, volume.",
             }
-            st.caption(level_desc[level])
+            st.caption(f"_{mode_label}_ | {level_desc[level]}")
 
             fig = build_chart(
                 df, trailing_stop, in_trade, entry_signals, exit_signals,
@@ -683,50 +679,23 @@ if ticker:
                 "displayModeBar": "hover",
                 "modeBarButtonsToRemove": ["lasso2d", "select2d", "toImage"],
                 "scrollZoom": True,
-                "modeBarStyle": {"bgcolor": "rgba(255,255,255,0.1)"},
             })
             st.caption("Drag to zoom | Scroll to zoom | Double-click to reset")
 
-        # =====================
-        # BELOW CHART
-        # =====================
-
+        # --- 3. THE RULES (know before you act) ---
         st.markdown("---")
-        col_calc, col_rules = st.columns(2)
-
-        with col_calc:
-            st.markdown("### How Much to Buy")
-            calc_c1, calc_c2 = st.columns(2)
-            with calc_c1:
-                capital = st.number_input("Your total capital ($)", value=10000, step=1000)
-            with calc_c2:
-                risk_pct = st.slider("Max risk (%)", min_value=1, max_value=5, value=2,
-                                     help="What % of your capital you're willing to lose on this trade")
-
-            shares, position_value = compute_position_size(capital, risk_pct, current_price, stop_loss)
-
-            if shares > 0:
-                max_loss = shares * (current_price - stop_loss)
-                st.info(f"Buy {shares} shares (${position_value:,.0f})")
-                st.caption(
-                    f"Worst case if it hits your stop: you lose ${max_loss:,.0f} "
-                    f"— that's {risk_pct}% of your ${capital:,}. "
-                    f"This is the MOST you can lose if you follow your stop."
-                )
-            else:
-                st.warning("No valid trade setup at this price.")
-
-        with col_rules:
-            st.markdown("### The Rules")
+        col_play, col_never = st.columns(2)
+        with col_play:
             st.success(
                 "**How to play:**\n"
-                "1. Price above the yellow safety line → OK to buy\n"
+                "1. Price above yellow safety line → OK to buy\n"
                 "2. Set your stop loss immediately\n"
                 "3. At Target 1 → sell half, move stop to breakeven\n"
                 "4. Ride the rest → safety line protects you\n"
                 "5. Price drops below safety line → sell everything\n"
                 "6. 3 days of nothing → close and move on"
             )
+        with col_never:
             st.error(
                 "**Never do this:**\n"
                 "- Buy without setting a stop loss\n"
@@ -736,7 +705,30 @@ if ticker:
                 "- Check the price every 5 minutes (position too big)"
             )
 
-        # Why this signal (always available)
+        # --- 4. POSITION SIZE (how much to risk) ---
+        st.markdown("---")
+        st.markdown("### How Much to Buy")
+        col_cap, col_risk, col_result = st.columns([1, 1, 2])
+        with col_cap:
+            capital = st.number_input("Your capital ($)", value=10000, step=1000)
+        with col_risk:
+            risk_pct = st.slider("Max risk (%)", min_value=1, max_value=5, value=2,
+                                 help="% of your capital you're willing to lose on this trade")
+        with col_result:
+            shares, position_value = compute_position_size(capital, risk_pct, current_price, stop_loss)
+            if shares > 0:
+                max_loss = shares * (current_price - stop_loss)
+                st.info(f"Buy {shares} shares (${position_value:,.0f})")
+                st.caption(
+                    f"Worst case if stopped out: you lose ${max_loss:,.0f} "
+                    f"({risk_pct}% of ${capital:,}). That's the MOST you can lose."
+                )
+            else:
+                st.warning("No valid trade setup at this price.")
+
+        # --- 5. LEARN MORE (expandable) ---
+        st.markdown("---")
+
         with st.expander("Why this signal?"):
             col_bull, col_bear = st.columns(2)
             with col_bull:
@@ -753,56 +745,41 @@ if ticker:
                     st.markdown("- *Nothing right now*")
             st.caption(f"Score: {score} | 3+ = ENTER, -3 or less = EXIT, between = WAIT")
 
-        # Learning journey
         with st.expander("What am I looking at?"):
             if level == 1:
-                st.markdown("""
-**The white line** is the price of the stock right now.
-
-**The yellow line** is your safety net (called a "trailing stop"). It follows the price up
-but never goes back down. Think of it like a ratchet.
-
-- When the price is ABOVE the yellow line → you can hold the stock safely
-- When the price drops BELOW the yellow line → sell immediately
-
-**Green triangles** = the app detected a good time to buy
-**Red triangles** = the app detected you should sell
-
-That's it. When you're comfortable with this, switch to Normal mode to see more.
-                """)
+                st.markdown(
+                    "**The blue line** is the stock price.\n\n"
+                    "**The yellow line** is your safety net (trailing stop). "
+                    "It follows the price up but never goes back down — like a ratchet.\n\n"
+                    "- Price ABOVE yellow line → safe to hold\n"
+                    "- Price drops BELOW yellow line → sell immediately\n\n"
+                    "**Green triangles** = good time to buy | "
+                    "**Red triangles** = time to sell\n\n"
+                    "When you're comfortable with this, switch to Normal mode."
+                )
             elif level == 2:
-                st.markdown("""
-Everything from Easy mode, plus:
-
-**Green shaded area** = support zone. Price tends to bounce here — it's a floor.
-**Red shaded area** = resistance zone. Price tends to stall here — it's a ceiling.
-**Dotted red line** = your stop loss. Set this when you buy. Never move it lower.
-**Dotted green lines** = your profit targets. Sell half at Target 1, rest at Target 2.
-**Blue dashed line** = 20-day trend. Shows where price has been recently on average.
-**Purple dashed line** = 50-day trend. Shows the bigger picture direction.
-
-When price is above both trend lines → the stock is in an uptrend (bullish).
-When price is below both → downtrend (bearish). Stay out.
-                """)
+                st.markdown(
+                    "Everything from Easy mode, plus:\n\n"
+                    "**Green band** = support zone (price tends to bounce here)\n"
+                    "**Red band** = resistance zone (price tends to stall here)\n"
+                    "**Dotted red line** = your stop loss (never move it lower)\n"
+                    "**Dotted green lines** = your profit targets\n"
+                    "**Blue dashed** = short-term trend | **Purple dashed** = medium-term trend\n\n"
+                    "Price above both trend lines → uptrend (bullish). "
+                    "Below both → downtrend (stay out)."
+                )
             else:
-                st.markdown("""
-Everything from Normal mode, plus:
-
-**Candlesticks** replace the simple line. Green candle = price went up that day.
-Red candle = price went down. The "wicks" show the full range.
-
-**RSI chart (middle):** Momentum thermometer from 0-100.
-- Above 70 (red zone) = overbought. The stock ran too hot. Likely to cool down.
-- Below 30 (green zone) = oversold. Dropped too hard. Likely to bounce.
-- In between = neutral.
-
-**Volume bars (bottom):** How many shares traded that day.
-- Tall bars = lots of conviction behind the move (real)
-- Short bars = low conviction (might be a fake-out)
-- Dashed line = the average. Above average = noteworthy.
-
-A strong signal has BOTH: price moving in a direction AND volume confirming it.
-                """)
+                st.markdown(
+                    "Everything from Normal mode, plus:\n\n"
+                    "**Candlesticks** — Green = price went up. Red = price went down. "
+                    "Wicks show the full range.\n\n"
+                    "**RSI (middle chart)** — Momentum thermometer 0-100. "
+                    "Above 70 = overbought (may pull back). Below 30 = oversold (may bounce).\n\n"
+                    "**Volume (bottom chart)** — How many shares traded. "
+                    "Tall bars = real conviction. Short bars = possible fake-out. "
+                    "Dashed line = average.\n\n"
+                    "A strong signal needs BOTH: price moving AND volume confirming."
+                )
 
         st.markdown("---")
         st.caption("Not financial advice. A learning tool. Do your own research. "
