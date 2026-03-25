@@ -686,24 +686,49 @@ if ticker:
         st.markdown("---")
         col_play, col_never = st.columns(2)
         with col_play:
-            st.success(
-                "**How to play:**\n"
-                "1. Price above yellow safety line → OK to buy\n"
-                "2. Set your stop loss immediately\n"
-                "3. At Target 1 → sell half, move stop to breakeven\n"
-                "4. Ride the rest → safety line protects you\n"
-                "5. Price drops below safety line → sell everything\n"
-                "6. 3 days of nothing → close and move on"
-            )
+            if mode == "Swing":
+                st.success(
+                    "**How to play (Swing):**\n"
+                    "1. Wait for a catalyst (earnings, news) — watch Day 1\n"
+                    "2. Enter on Day 2 if same direction + strong volume\n"
+                    "3. Set your stop loss immediately\n"
+                    "4. At Target 1 → sell half, move stop to breakeven\n"
+                    "5. Ride the rest → safety line protects you\n"
+                    "6. 3 days of nothing → close and move on\n"
+                    "7. Check once in the morning, once at close. That's it."
+                )
+            else:
+                st.success(
+                    "**How to play (Day):**\n"
+                    "1. Wait for a breakout with volume — don't chase\n"
+                    "2. Enter only when price is above safety line AND moving up\n"
+                    "3. Set your stop loss immediately\n"
+                    "4. At Target 1 → sell half, move stop to breakeven\n"
+                    "5. Ride the rest with the safety line\n"
+                    "6. No movement for 30 min → close the trade\n"
+                    "7. Always exit before market close — never hold overnight"
+                )
         with col_never:
-            st.error(
-                "**Never do this:**\n"
-                "- Buy without setting a stop loss\n"
-                "- Move your stop loss lower (\"give it more room\")\n"
-                "- Buy more when it's going down (\"it's cheaper now\")\n"
-                "- Hold a trade that isn't working (\"it'll come back\")\n"
-                "- Check the price every 5 minutes (position too big)"
-            )
+            if mode == "Swing":
+                st.error(
+                    "**Never do this (Swing):**\n"
+                    "- Buy without setting a stop loss\n"
+                    "- Move your stop loss lower (\"give it more room\")\n"
+                    "- Buy more when it's going down (\"it's cheaper now\")\n"
+                    "- Hold a trade that isn't working (\"it'll come back\")\n"
+                    "- Ignore overnight gaps — check pre-market before open\n"
+                    "- Turn a swing trade into an \"investment\""
+                )
+            else:
+                st.error(
+                    "**Never do this (Day):**\n"
+                    "- Buy without setting a stop loss\n"
+                    "- Move your stop loss lower\n"
+                    "- Hold a losing position hoping it reverses\n"
+                    "- Hold overnight without a plan — gaps can destroy you\n"
+                    "- Trade the first 15 min of market open (too chaotic)\n"
+                    "- Take more than 3 trades in a day (overtrading)"
+                )
 
         # --- 4. POSITION SIZE (how much to risk) ---
         st.markdown("---")
@@ -746,9 +771,13 @@ if ticker:
             st.caption(f"Score: {score} | 3+ = ENTER, -3 or less = EXIT, between = WAIT")
 
         with st.expander("What am I looking at?"):
+            timeframe = "each day" if mode == "Swing" else "every 5 minutes"
+            trend_fast = "20-day" if mode == "Swing" else "9-period"
+            trend_slow = "50-day" if mode == "Swing" else "21-period"
+
             if level == 1:
                 st.markdown(
-                    "**The blue line** is the stock price.\n\n"
+                    f"**The blue line** is the stock price (updated {timeframe}).\n\n"
                     "**The yellow line** is your safety net (trailing stop). "
                     "It follows the price up but never goes back down — like a ratchet.\n\n"
                     "- Price ABOVE yellow line → safe to hold\n"
@@ -757,6 +786,11 @@ if ticker:
                     "**Red triangles** = time to sell\n\n"
                     "When you're comfortable with this, switch to Normal mode."
                 )
+                if mode == "Day":
+                    st.caption(
+                        "In Day mode, the safety line is wider to avoid false signals "
+                        "from short-term noise. It won't trigger on every small dip."
+                    )
             elif level == 2:
                 st.markdown(
                     "Everything from Easy mode, plus:\n\n"
@@ -764,15 +798,16 @@ if ticker:
                     "**Red band** = resistance zone (price tends to stall here)\n"
                     "**Dotted red line** = your stop loss (never move it lower)\n"
                     "**Dotted green lines** = your profit targets\n"
-                    "**Blue dashed** = short-term trend | **Purple dashed** = medium-term trend\n\n"
+                    f"**Blue dashed** = {trend_fast} trend | **Purple dashed** = {trend_slow} trend\n\n"
                     "Price above both trend lines → uptrend (bullish). "
                     "Below both → downtrend (stay out)."
                 )
             else:
+                candle_desc = "each day" if mode == "Swing" else "each 5-minute window"
                 st.markdown(
                     "Everything from Normal mode, plus:\n\n"
-                    "**Candlesticks** — Green = price went up. Red = price went down. "
-                    "Wicks show the full range.\n\n"
+                    f"**Candlesticks** — Green = price went up that {candle_desc}. "
+                    "Red = went down. Wicks show the full range.\n\n"
                     "**RSI (middle chart)** — Momentum thermometer 0-100. "
                     "Above 70 = overbought (may pull back). Below 30 = oversold (may bounce).\n\n"
                     "**Volume (bottom chart)** — How many shares traded. "
