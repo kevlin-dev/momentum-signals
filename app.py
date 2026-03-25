@@ -757,7 +757,7 @@ if ticker:
                 with col_loss:
                     st.metric("If stopped out", f"-${max_loss:,.0f}",
                               delta=f"-{(max_loss / position_value * 100):.1f}%",
-                              delta_color="inverse")
+                              delta_color="normal")
                 with col_gain:
                     st.metric("If both targets hit", f"+${realistic_gain:,.0f}",
                               delta=f"+{(realistic_gain / position_value * 100):.1f}%")
