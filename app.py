@@ -474,6 +474,7 @@ def build_chart(df, trailing_stop, in_trade, entry_signals, exit_signals,
         hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(30,30,30,0.95)", font_size=12),
         dragmode="pan",
+        uirevision=ticker,  # preserve zoom/pan across auto-refreshes; resets on ticker change
     )
 
     # Range selector buttons — quick jump to relevant timeframes
