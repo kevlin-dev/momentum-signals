@@ -219,7 +219,9 @@ def compute_position_size(capital, risk_pct, price, stop_loss):
     if risk_per_share <= 0:
         return 0, 0
     risk_amount = capital * (risk_pct / 100)
-    shares = int(risk_amount / risk_per_share)
+    shares_by_risk = int(risk_amount / risk_per_share)
+    max_shares_by_capital = int(capital / price)
+    shares = min(shares_by_risk, max_shares_by_capital)
     position_value = shares * price
     return shares, position_value
 
