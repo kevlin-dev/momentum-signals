@@ -14,7 +14,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import requests as _requests
-from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIG ---
 st.set_page_config(
@@ -611,8 +610,6 @@ else:
     mode_label = "Day Trading — 5-min candles, in and out today"
     refresh_interval = 15
 
-# Auto-refresh: 15s for day trading, 60s for swing
-st_autorefresh(interval=refresh_interval * 1000, key="data_refresh")
 
 # --- MAIN ---
 if ticker:
@@ -680,22 +677,37 @@ if ticker:
         col_card, col_chart = st.columns([1, 3])
 
         with col_card:
-            # --- Signal card ---
-            trade_status = "Above safety line" if in_trade_now else "Below safety line"
-            change_color = '#22c55e' if daily_change >= 0 else '#ef4444'
-            change_sign = '+' if daily_change >= 0 else ''
-            st.markdown(f"""
-            <div style="background: #111827; border: 2px solid {color}; border-radius: 12px; padding: 20px; text-align: center; margin: 8px 0;">
-                <div style="font-size: 48px; font-weight: 800; letter-spacing: 4px; color: {color};">{signal}</div>
-                <div style="font-size: 18px; color: #e5e7eb; margin-top: 4px;">
-                    {ticker.upper()} &mdash; ${current_price:.2f}
-                    <span style="color: {change_color};">({change_sign}{daily_change:.1f}%)</span>
+            # --- Live price fragment — auto-refreshes without touching the chart ---
+            @st.fragment(run_every=timedelta(seconds=refresh_interval))
+            def live_signal_card():
+                quote = get_finnhub_quote(ticker.upper())
+                if quote:
+                    live_price = quote["c"]
+                    live_change = quote["dp"]
+                    source_label = "live"
+                else:
+                    live_price = current_price
+                    live_change = daily_change
+                    source_label = "delayed"
+                live_color = '#22c55e' if live_change >= 0 else '#ef4444'
+                live_sign = '+' if live_change >= 0 else ''
+                st.markdown(f"""
+                <div style="background: #111827; border: 2px solid {color}; border-radius: 12px; padding: 20px; text-align: center; margin: 8px 0;">
+                    <div style="font-size: 48px; font-weight: 800; letter-spacing: 4px; color: {color};">{signal}</div>
+                    <div style="font-size: 18px; color: #e5e7eb; margin-top: 4px;">
+                        {ticker.upper()} &mdash; ${live_price:.2f}
+                        <span style="color: {live_color};">({live_sign}{live_change:.1f}%)</span>
+                    </div>
+                    <div style="font-size: 13px; color: #9ca3af; margin-top: 6px;">
+                        {"Above" if in_trade_now else "Below"} safety line
+                        &middot; {source_label} &middot; {datetime.now().strftime('%H:%M:%S')}
+                    </div>
                 </div>
-                <div style="font-size: 13px; color: #9ca3af; margin-top: 6px;">{trade_status}</div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-            # --- Key numbers ---
+            live_signal_card()
+
+            # --- Key numbers (static — updates on widget change) ---
             st.metric("Safety Line", f"${current_trailing_stop:.2f}",
                       help="Trailing stop. Only moves up. If price drops below → sell.")
 
